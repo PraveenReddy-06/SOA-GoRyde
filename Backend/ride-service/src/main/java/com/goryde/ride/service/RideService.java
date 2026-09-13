@@ -17,22 +17,24 @@ import java.math.RoundingMode;
 import java.util.List;
 
 @Service
-@Transactional
 public class RideService {
     private final RideRepository rideRepository;
     private final DistanceCalculator distanceCalculator;
     private final FareCalculator fareCalculator;
     private final RideProperties rideProperties;
     private final PassengerIdentityProvider passengerIdentityProvider;
+    private final DriverMatchingService driverMatchingService;
 
     public RideService(RideRepository rideRepository, DistanceCalculator distanceCalculator,
                        FareCalculator fareCalculator, RideProperties rideProperties,
-                       PassengerIdentityProvider passengerIdentityProvider) {
+                       PassengerIdentityProvider passengerIdentityProvider,
+                       DriverMatchingService driverMatchingService) {
         this.rideRepository = rideRepository;
         this.distanceCalculator = distanceCalculator;
         this.fareCalculator = fareCalculator;
         this.rideProperties = rideProperties;
         this.passengerIdentityProvider = passengerIdentityProvider;
+        this.driverMatchingService = driverMatchingService;
     }
 
     public RideResponse create(CreateRideRequest request) {
@@ -52,7 +54,8 @@ public class RideService {
         ride.setEstimatedDurationMinutes(durationMinutes);
         ride.setFare(fareCalculator.calculate(distanceKm, durationMinutes));
         ride.setStatus(RideStatus.REQUESTED);
-        return RideResponse.from(rideRepository.save(ride));
+        Ride savedRide = rideRepository.save(ride);
+        return driverMatchingService.matchAndAssign(savedRide);
     }
 
     @Transactional(readOnly = true)
@@ -68,6 +71,7 @@ public class RideService {
                 .stream().map(RideResponse::from).toList();
     }
 
+    @Transactional
     public RideResponse cancel(Long rideId) {
         Ride ride = findRide(rideId);
         if (ride.getStatus() == RideStatus.CANCELLED) {
@@ -80,10 +84,12 @@ public class RideService {
         return RideResponse.from(rideRepository.save(ride));
     }
 
+    @Transactional
     public RideResponse start(Long rideId) {
         return transition(rideId, RideStatus.DRIVER_ARRIVED, RideStatus.RIDE_STARTED);
     }
 
+    @Transactional
     public RideResponse complete(Long rideId) {
         return transition(rideId, RideStatus.RIDE_STARTED, RideStatus.RIDE_COMPLETED);
     }

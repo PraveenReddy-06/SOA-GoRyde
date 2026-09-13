@@ -27,6 +27,16 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.BAD_REQUEST, message, null);
     }
 
+    @ExceptionHandler({DriverServiceUnavailableException.class, DriverAssignmentException.class})
+    ResponseEntity<Map<String, Object>> handleDriverServiceFailure(RuntimeException exception) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), null);
+    }
+
+    @ExceptionHandler(InvalidDriverResponseException.class)
+    ResponseEntity<Map<String, Object>> handleInvalidDriverResponse(InvalidDriverResponseException exception) {
+        return response(HttpStatus.BAD_GATEWAY, exception.getMessage(), null);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException exception) {
         Map<String, String> errors = new LinkedHashMap<>();

@@ -3,6 +3,7 @@ package com.goryde.ride.service;
 import com.goryde.ride.config.FareProperties;
 import com.goryde.ride.config.RideProperties;
 import com.goryde.ride.dto.CreateRideRequest;
+import com.goryde.ride.dto.RideResponse;
 import com.goryde.ride.exception.InvalidRideTransitionException;
 import com.goryde.ride.exception.RideNotFoundException;
 import com.goryde.ride.model.Ride;
@@ -30,6 +31,7 @@ class RideServiceTest {
     @Mock DistanceCalculator distanceCalculator;
     @Mock FareCalculator fareCalculator;
     @Mock PassengerIdentityProvider identityProvider;
+    @Mock DriverMatchingService driverMatchingService;
     private RideService service;
     private CreateRideRequest request;
 
@@ -37,7 +39,8 @@ class RideServiceTest {
     void setUp() {
         RideProperties properties = new RideProperties();
         properties.setEstimatedDurationMinutesPerKm(3);
-        service = new RideService(repository, distanceCalculator, fareCalculator, properties, identityProvider);
+        service = new RideService(repository, distanceCalculator, fareCalculator, properties,
+            identityProvider, driverMatchingService);
         request = new CreateRideRequest("Pickup", "Drop", decimal("40.0"), decimal("-73.0"),
                 decimal("40.1"), decimal("-73.1"));
     }
@@ -52,13 +55,20 @@ class RideServiceTest {
             ride.setId(1L);
             return ride;
         });
+        when(driverMatchingService.matchAndAssign(any(Ride.class))).thenAnswer(invocation -> {
+            Ride ride = invocation.getArgument(0);
+            ride.setDriverId(7L);
+            ride.setStatus(RideStatus.DRIVER_ASSIGNED);
+            return RideResponse.from(ride);
+        });
 
         var response = service.create(request);
 
         assertThat(response.passengerId()).isEqualTo(42L);
         assertThat(response.distanceKm()).isEqualByComparingTo("10.00");
         assertThat(response.fare()).isEqualByComparingTo("28.50");
-        assertThat(response.status()).isEqualTo(RideStatus.REQUESTED);
+        assertThat(response.status()).isEqualTo(RideStatus.DRIVER_ASSIGNED);
+        assertThat(response.driverId()).isEqualTo(7L);
     }
 
     @Test

@@ -1,0 +1,7 @@
+package com.goryde.ride.exception;
+
+public class DriverServiceUnavailableException extends RuntimeException {
+    public DriverServiceUnavailableException() {
+        super("Driver Service is unavailable");
+    }
+}

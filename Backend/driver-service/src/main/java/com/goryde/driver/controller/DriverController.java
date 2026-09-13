@@ -4,6 +4,7 @@ import com.goryde.driver.dto.AvailabilityUpdateRequest;
 import com.goryde.driver.dto.DriverRequest;
 import com.goryde.driver.dto.DriverResponse;
 import com.goryde.driver.dto.LocationUpdateRequest;
+import com.goryde.driver.exception.NoAvailableDriverException;
 import com.goryde.driver.service.DriverService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -73,6 +74,6 @@ public class DriverController {
             @RequestParam @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") BigDecimal latitude,
             @RequestParam @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") BigDecimal longitude) {
         return driverService.findNearestAvailable(latitude, longitude)
-                .orElseThrow(() -> new IllegalArgumentException("No available driver with a location was found"));
+                .orElseThrow(NoAvailableDriverException::new);
     }
 }

@@ -5,6 +5,7 @@ import com.goryde.ride.dto.CreateRideRequest;
 import com.goryde.ride.dto.RideResponse;
 import com.goryde.ride.exception.InvalidRideTransitionException;
 import com.goryde.ride.exception.RideNotFoundException;
+import com.goryde.ride.exception.UnauthorizedDriverActionException;
 import com.goryde.ride.model.Ride;
 import com.goryde.ride.model.RideStatus;
 import com.goryde.ride.repository.RideRepository;
@@ -91,7 +92,50 @@ public class RideService {
 
     @Transactional
     public RideResponse complete(Long rideId) {
-        return transition(rideId, RideStatus.RIDE_STARTED, RideStatus.RIDE_COMPLETED);
+        Ride ride = findRide(rideId);
+        if (ride.getStatus() != RideStatus.RIDE_STARTED) {
+            throw new InvalidRideTransitionException(ride.getStatus(), RideStatus.RIDE_COMPLETED);
+        }
+        ride.setStatus(RideStatus.RIDE_COMPLETED);
+        rideRepository.save(ride);
+        ride.setStatus(RideStatus.PAYMENT_PENDING);
+        return RideResponse.from(rideRepository.save(ride));
+    }
+
+    @Transactional
+    public RideResponse driverAccept(Long rideId, Long driverId) {
+        return driverTransition(rideId, driverId, RideStatus.DRIVER_ASSIGNED, RideStatus.DRIVER_ACCEPTED);
+    }
+
+    @Transactional
+    public RideResponse driverReject(Long rideId, Long driverId) {
+        Ride ride = findAssignedRide(rideId, driverId);
+        if (ride.getStatus() != RideStatus.DRIVER_ASSIGNED) {
+            throw new InvalidRideTransitionException(ride.getStatus(), RideStatus.SEARCHING_DRIVER);
+        }
+        ride.setDriverId(null);
+        ride.setStatus(RideStatus.SEARCHING_DRIVER);
+        return RideResponse.from(rideRepository.save(ride));
+    }
+
+    @Transactional
+    public RideResponse driverArriving(Long rideId, Long driverId) {
+        return driverTransition(rideId, driverId, RideStatus.DRIVER_ACCEPTED, RideStatus.DRIVER_ARRIVING);
+    }
+
+    @Transactional
+    public RideResponse driverArrived(Long rideId, Long driverId) {
+        return driverTransition(rideId, driverId, RideStatus.DRIVER_ARRIVING, RideStatus.DRIVER_ARRIVED);
+    }
+
+    @Transactional
+    public RideResponse paymentCompleted(Long rideId) {
+        Ride ride = findRide(rideId);
+        if (ride.getStatus() != RideStatus.PAYMENT_PENDING) {
+            throw new InvalidRideTransitionException(ride.getStatus(), RideStatus.PAYMENT_COMPLETED);
+        }
+        ride.setStatus(RideStatus.PAYMENT_COMPLETED);
+        return RideResponse.from(rideRepository.save(ride));
     }
 
     private RideResponse transition(Long rideId, RideStatus expected, RideStatus requested) {
@@ -101,6 +145,24 @@ public class RideService {
         }
         ride.setStatus(requested);
         return RideResponse.from(rideRepository.save(ride));
+    }
+
+    private RideResponse driverTransition(Long rideId, Long driverId,
+                                          RideStatus expected, RideStatus requested) {
+        Ride ride = findAssignedRide(rideId, driverId);
+        if (ride.getStatus() != expected) {
+            throw new InvalidRideTransitionException(ride.getStatus(), requested);
+        }
+        ride.setStatus(requested);
+        return RideResponse.from(rideRepository.save(ride));
+    }
+
+    private Ride findAssignedRide(Long rideId, Long driverId) {
+        Ride ride = findRide(rideId);
+        if (driverId == null || !driverId.equals(ride.getDriverId())) {
+            throw new UnauthorizedDriverActionException();
+        }
+        return ride;
     }
 
     private Ride findRide(Long rideId) {

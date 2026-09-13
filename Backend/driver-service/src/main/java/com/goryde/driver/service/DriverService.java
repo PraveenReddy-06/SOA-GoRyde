@@ -5,6 +5,11 @@ import com.goryde.driver.dto.DriverResponse;
 import com.goryde.driver.dto.LocationUpdateRequest;
 import com.goryde.driver.exception.DriverNotFoundException;
 import com.goryde.driver.exception.InvalidAvailabilityTransitionException;
+import com.goryde.driver.exception.RideServiceUnavailableException;
+import com.goryde.driver.exception.InvalidRideActionException;
+import com.goryde.driver.integration.ride.RideServiceClient;
+import com.goryde.driver.integration.ride.DriverActionRequest;
+import feign.FeignException;
 import com.goryde.driver.model.Driver;
 import com.goryde.driver.model.DriverAvailability;
 import com.goryde.driver.repository.DriverRepository;
@@ -20,9 +25,11 @@ import java.util.Optional;
 public class DriverService {
     private static final double EARTH_RADIUS_KM = 6371.0;
     private final DriverRepository driverRepository;
+    private final RideServiceClient rideServiceClient;
 
-    public DriverService(DriverRepository driverRepository) {
+    public DriverService(DriverRepository driverRepository, RideServiceClient rideServiceClient) {
         this.driverRepository = driverRepository;
+        this.rideServiceClient = rideServiceClient;
     }
 
     public DriverResponse create(DriverRequest request) {
@@ -59,6 +66,30 @@ public class DriverService {
         return DriverResponse.from(driverRepository.save(driver));
     }
 
+    public DriverResponse acceptRide(Long driverId, Long rideId) {
+        requireBusyDriver(driverId);
+        invokeRideAction(() -> rideServiceClient.accept(rideId, new DriverActionRequest(driverId)));
+        return DriverResponse.from(findDriver(driverId));
+    }
+
+    public DriverResponse rejectRide(Long driverId, Long rideId) {
+        requireBusyDriver(driverId);
+        invokeRideAction(() -> rideServiceClient.reject(rideId, new DriverActionRequest(driverId)));
+        return updateAvailability(driverId, DriverAvailability.AVAILABLE);
+    }
+
+    public DriverResponse markArriving(Long driverId, Long rideId) {
+        requireBusyDriver(driverId);
+        invokeRideAction(() -> rideServiceClient.arriving(rideId, new DriverActionRequest(driverId)));
+        return DriverResponse.from(findDriver(driverId));
+    }
+
+    public DriverResponse markArrived(Long driverId, Long rideId) {
+        requireBusyDriver(driverId);
+        invokeRideAction(() -> rideServiceClient.arrived(rideId, new DriverActionRequest(driverId)));
+        return DriverResponse.from(findDriver(driverId));
+    }
+
     @Transactional(readOnly = true)
     public List<DriverResponse> findAvailable() {
         return driverRepository.findByAvailability(DriverAvailability.AVAILABLE).stream()
@@ -77,6 +108,29 @@ public class DriverService {
 
     private Driver findDriver(Long driverId) {
         return driverRepository.findById(driverId).orElseThrow(() -> new DriverNotFoundException(driverId));
+    }
+
+    private void requireBusyDriver(Long driverId) {
+        Driver driver = findDriver(driverId);
+        if (driver.getAvailability() != DriverAvailability.BUSY) {
+            throw new IllegalArgumentException("Driver must be BUSY for this ride action");
+        }
+    }
+
+    private void invokeRideAction(RideAction action) {
+        try {
+            action.invoke();
+        } catch (FeignException exception) {
+            if (exception.status() == 400 || exception.status() == 403 || exception.status() == 404) {
+                throw new InvalidRideActionException("Ride action was rejected by Ride Service");
+            }
+            throw new RideServiceUnavailableException();
+        }
+    }
+
+    @FunctionalInterface
+    private interface RideAction {
+        void invoke();
     }
 
     private void applyDetails(Driver driver, DriverRequest request) {

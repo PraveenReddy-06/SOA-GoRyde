@@ -4,6 +4,8 @@ import com.goryde.driver.dto.DriverRequest;
 import com.goryde.driver.dto.LocationUpdateRequest;
 import com.goryde.driver.exception.DriverNotFoundException;
 import com.goryde.driver.exception.InvalidAvailabilityTransitionException;
+import com.goryde.driver.exception.RideServiceUnavailableException;
+import com.goryde.driver.integration.ride.RideServiceClient;
 import com.goryde.driver.model.Driver;
 import com.goryde.driver.model.DriverAvailability;
 import com.goryde.driver.repository.DriverRepository;
@@ -22,17 +24,19 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DriverServiceTest {
     @Mock DriverRepository repository;
+    @Mock RideServiceClient rideServiceClient;
     private DriverService service;
     private DriverRequest request;
 
     @BeforeEach
     void setUp() {
-        service = new DriverService(repository);
+        service = new DriverService(repository, rideServiceClient);
         request = new DriverRequest("Ada", "555-0100", "ada@example.com", "Sedan", decimal("40.0"), decimal("-73.0"));
     }
 
@@ -86,6 +90,67 @@ class DriverServiceTest {
         when(repository.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getById(99L)).isInstanceOf(DriverNotFoundException.class);
     }
+
+        @Test
+        void acceptsAssignedRideWhileStayingBusy() {
+        Driver driver = driver(1L, DriverAvailability.BUSY, decimal("40.0"), decimal("-73.0"));
+        when(repository.findById(1L)).thenReturn(Optional.of(driver));
+
+        service.acceptRide(1L, 10L);
+
+        verify(rideServiceClient).accept(10L,
+            new com.goryde.driver.integration.ride.DriverActionRequest(1L));
+        assertThat(driver.getAvailability()).isEqualTo(DriverAvailability.BUSY);
+        }
+
+        @Test
+        void rejectsAssignedRideAndMakesDriverAvailable() {
+        Driver driver = driver(1L, DriverAvailability.BUSY, decimal("40.0"), decimal("-73.0"));
+        when(repository.findById(1L)).thenReturn(Optional.of(driver));
+        when(repository.save(driver)).thenReturn(driver);
+
+        service.rejectRide(1L, 10L);
+
+        verify(rideServiceClient).reject(10L,
+            new com.goryde.driver.integration.ride.DriverActionRequest(1L));
+        assertThat(driver.getAvailability()).isEqualTo(DriverAvailability.AVAILABLE);
+        }
+
+        @Test
+        void supportsArrivingAndArrivedActions() {
+        Driver driver = driver(1L, DriverAvailability.BUSY, decimal("40.0"), decimal("-73.0"));
+        when(repository.findById(1L)).thenReturn(Optional.of(driver));
+
+        service.markArriving(1L, 10L);
+        service.markArrived(1L, 10L);
+
+        verify(rideServiceClient).arriving(10L,
+            new com.goryde.driver.integration.ride.DriverActionRequest(1L));
+        verify(rideServiceClient).arrived(10L,
+            new com.goryde.driver.integration.ride.DriverActionRequest(1L));
+        }
+
+        @Test
+        void rejectsRideActionForNonBusyDriver() {
+        Driver driver = driver(1L, DriverAvailability.AVAILABLE, decimal("40.0"), decimal("-73.0"));
+        when(repository.findById(1L)).thenReturn(Optional.of(driver));
+
+        assertThatThrownBy(() -> service.acceptRide(1L, 10L))
+            .isInstanceOf(IllegalArgumentException.class);
+        }
+
+        @Test
+        void reportsRideServiceFailureWithoutChangingDriverAvailability() {
+        Driver driver = driver(1L, DriverAvailability.BUSY, decimal("40.0"), decimal("-73.0"));
+        when(repository.findById(1L)).thenReturn(Optional.of(driver));
+        when(rideServiceClient.accept(10L,
+            new com.goryde.driver.integration.ride.DriverActionRequest(1L)))
+            .thenThrow(mock(feign.FeignException.class));
+
+        assertThatThrownBy(() -> service.acceptRide(1L, 10L))
+            .isInstanceOf(RideServiceUnavailableException.class);
+        assertThat(driver.getAvailability()).isEqualTo(DriverAvailability.BUSY);
+        }
 
     private Driver driver(Long id, DriverAvailability availability, BigDecimal latitude, BigDecimal longitude) {
         Driver driver = new Driver();

@@ -108,7 +108,7 @@ class RideServiceTest {
         when(repository.save(ride)).thenReturn(ride);
 
         assertThat(service.start(1L).status()).isEqualTo(RideStatus.RIDE_STARTED);
-        assertThat(service.complete(1L).status()).isEqualTo(RideStatus.RIDE_COMPLETED);
+        assertThat(service.complete(1L).status()).isEqualTo(RideStatus.PAYMENT_PENDING);
     }
 
     @Test

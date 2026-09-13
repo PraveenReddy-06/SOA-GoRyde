@@ -1,10 +1,26 @@
 spring:
   application:
     name: payment-service
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/goryde_payment?createDatabaseIfNotExist=true&serverTimezone=UTC}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  cloud:
+    openfeign:
+      client:
+        config:
+          "RIDE-SERVICE":
+            connectTimeout: 2000
+            readTimeout: 3000
+            loggerLevel: basic
 
 server:
   port: 8083

@@ -69,6 +69,26 @@ public class DriverController {
         return driverService.updateLocation(driverId, request);
     }
 
+    @PostMapping("/{driverId}/accept")
+    public DriverResponse accept(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
+        return driverService.acceptRide(driverId, request.rideId());
+    }
+
+    @PostMapping("/{driverId}/reject")
+    public DriverResponse reject(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
+        return driverService.rejectRide(driverId, request.rideId());
+    }
+
+    @PostMapping("/{driverId}/arriving")
+    public DriverResponse arriving(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
+        return driverService.markArriving(driverId, request.rideId());
+    }
+
+    @PostMapping("/{driverId}/arrived")
+    public DriverResponse arrived(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
+        return driverService.markArrived(driverId, request.rideId());
+    }
+
     @GetMapping("/nearest")
     public DriverResponse nearest(
             @RequestParam @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") BigDecimal latitude,

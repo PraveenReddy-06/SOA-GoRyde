@@ -27,6 +27,11 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.BAD_REQUEST, message, null);
     }
 
+    @ExceptionHandler(UnauthorizedDriverActionException.class)
+    ResponseEntity<Map<String, Object>> handleUnauthorizedDriver(UnauthorizedDriverActionException exception) {
+        return response(HttpStatus.FORBIDDEN, exception.getMessage(), null);
+    }
+
     @ExceptionHandler({DriverServiceUnavailableException.class, DriverAssignmentException.class})
     ResponseEntity<Map<String, Object>> handleDriverServiceFailure(RuntimeException exception) {
         return response(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), null);

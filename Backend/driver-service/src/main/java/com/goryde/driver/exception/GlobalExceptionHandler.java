@@ -19,6 +19,16 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.NOT_FOUND, exception.getMessage(), null);
     }
 
+    @ExceptionHandler(RideServiceUnavailableException.class)
+    ResponseEntity<Map<String, Object>> handleRideServiceUnavailable(RideServiceUnavailableException exception) {
+        return response(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), null);
+    }
+
+    @ExceptionHandler(InvalidRideActionException.class)
+    ResponseEntity<Map<String, Object>> handleInvalidRideAction(InvalidRideActionException exception) {
+        return response(HttpStatus.BAD_REQUEST, exception.getMessage(), null);
+    }
+
     @ExceptionHandler({InvalidAvailabilityTransitionException.class, IllegalArgumentException.class})
     ResponseEntity<Map<String, Object>> handleBadRequest(RuntimeException exception) {
         return response(HttpStatus.BAD_REQUEST, exception.getMessage(), null);

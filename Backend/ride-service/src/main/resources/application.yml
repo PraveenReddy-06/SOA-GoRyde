@@ -1,13 +1,28 @@
 spring:
   application:
     name: ride-service
-  autoconfigure:
-    exclude:
-      - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
-      - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/goryde_ride?createDatabaseIfNotExist=true&serverTimezone=UTC}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
 
 server:
   port: 8081
+
+ride:
+  fare:
+    base: ${RIDE_FARE_BASE:5.00}
+    per-km: ${RIDE_FARE_PER_KM:1.50}
+    per-minute: ${RIDE_FARE_PER_MINUTE:0.25}
+  estimated-duration-minutes-per-km: ${RIDE_ESTIMATED_MINUTES_PER_KM:3}
 
 eureka:
   client:

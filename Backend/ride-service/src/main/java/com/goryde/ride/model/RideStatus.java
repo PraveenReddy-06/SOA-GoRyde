@@ -1,0 +1,15 @@
+package com.goryde.ride.model;
+
+public enum RideStatus {
+    REQUESTED,
+    SEARCHING_DRIVER,
+    DRIVER_ASSIGNED,
+    DRIVER_ACCEPTED,
+    DRIVER_ARRIVING,
+    DRIVER_ARRIVED,
+    RIDE_STARTED,
+    RIDE_COMPLETED,
+    PAYMENT_PENDING,
+    PAYMENT_COMPLETED,
+    CANCELLED
+}

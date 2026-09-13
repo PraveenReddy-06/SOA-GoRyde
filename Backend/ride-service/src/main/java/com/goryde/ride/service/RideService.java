@@ -43,7 +43,10 @@ public class RideService {
     public RideResponse create(CreateRideRequest request) {
         requirePassengerOrAdmin();
         Ride ride = new Ride();
-        passengerIdentityProvider.currentPassengerId().ifPresent(ride::setPassengerId);
+        ride.setPassengerId(
+        	    passengerIdentityProvider.currentPassengerId()
+        	        .orElseThrow(UnauthorizedRideAccessException::new)
+        	);
         ride.setPickupLocation(request.pickupLocation());
         ride.setDropLocation(request.dropLocation());
         ride.setPickupLatitude(request.pickupLatitude());

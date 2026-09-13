@@ -1,8 +1,13 @@
 spring:
   application:
     name: ride-service
+
   cloud:
     openfeign:
+      httpclient:
+        hc5:
+          enabled: true
+
       client:
         config:
           "DRIVER-SERVICE":

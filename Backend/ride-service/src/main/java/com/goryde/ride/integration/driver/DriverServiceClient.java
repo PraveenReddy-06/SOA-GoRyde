@@ -14,6 +14,6 @@ public interface DriverServiceClient {
                                           @RequestParam("longitude") String longitude);
 
     @PatchMapping("/api/drivers/{driverId}/availability")
-    void updateAvailability(@PathVariable("driverId") Long driverId,
-                            @RequestBody DriverAvailabilityUpdateRequest request);
+    DriverMatchResponse updateAvailability(@PathVariable("driverId") Long driverId,
+                                           @RequestBody DriverAvailabilityUpdateRequest request);
 }

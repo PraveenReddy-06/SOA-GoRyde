@@ -1,2 +1,4 @@
 # Maven build output
 target/
+
+Frontend/**/node_modules/

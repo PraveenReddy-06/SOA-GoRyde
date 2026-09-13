@@ -51,6 +51,19 @@ class GatewayJwtFilterTest {
     }
 
     @Test
+    void allowsOptionsPreflightWithoutToken() {
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.options("/api/rides")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET")
+                        .build());
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(exchange);
+    }
+
+    @Test
     void blocksInternalEndpointsAtGateway() {
         MockServerWebExchange exchange = MockServerWebExchange.from(
                 MockServerHttpRequest.post("/internal/rides/1/payment-completed").build());

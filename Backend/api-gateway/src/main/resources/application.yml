@@ -3,23 +3,41 @@ spring:
     name: api-gateway
   cloud:
     gateway:
-      routes:
-        - id: auth-service
-          uri: lb://AUTH-SERVICE
-          predicates:
-            - Path=/api/auth/**
-        - id: ride-service
-          uri: lb://RIDE-SERVICE
-          predicates:
-            - Path=/api/rides/**
-        - id: driver-service
-          uri: lb://DRIVER-SERVICE
-          predicates:
-            - Path=/api/drivers/**
-        - id: payment-service
-          uri: lb://PAYMENT-SERVICE
-          predicates:
-            - Path=/api/payments/**
+      server:
+        webflux:
+          globalcors:
+            add-to-simple-url-handler-mapping: true
+            cors-configurations:
+              '[/**]':
+                allowedOrigins:
+                  - http://localhost:5173
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - PATCH
+                  - DELETE
+                  - OPTIONS
+                allowedHeaders:
+                  - Authorization
+                  - Content-Type
+          routes:
+            - id: auth-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/auth/**
+            - id: ride-service
+              uri: lb://RIDE-SERVICE
+              predicates:
+                - Path=/api/rides/**
+            - id: driver-service
+              uri: lb://DRIVER-SERVICE
+              predicates:
+                - Path=/api/drivers/**
+            - id: payment-service
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/api/payments/**
 
 server:
   port: 8080

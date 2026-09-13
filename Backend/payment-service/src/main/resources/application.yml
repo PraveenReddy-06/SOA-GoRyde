@@ -3,8 +3,8 @@ spring:
     name: payment-service
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/goryde_payment?createDatabaseIfNotExist=true&serverTimezone=UTC}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    username: root
+    password: 123
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:

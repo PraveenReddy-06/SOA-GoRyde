@@ -4,6 +4,7 @@ import com.goryde.driver.dto.AvailabilityUpdateRequest;
 import com.goryde.driver.dto.DriverRequest;
 import com.goryde.driver.dto.DriverResponse;
 import com.goryde.driver.dto.LocationUpdateRequest;
+import com.goryde.driver.dto.RideActionRequest;
 import com.goryde.driver.exception.NoAvailableDriverException;
 import com.goryde.driver.service.DriverService;
 import jakarta.validation.Valid;

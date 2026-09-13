@@ -8,6 +8,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import reactor.core.publisher.Mono;
@@ -19,6 +20,7 @@ import java.util.function.Function;
 public class GatewayJwtFilter implements GlobalFilter {
     private final Function<String, Mono<AuthValidationResponse>> tokenValidator;
 
+    @Autowired
     public GatewayJwtFilter(WebClient.Builder webClientBuilder) {
         WebClient authClient = webClientBuilder.baseUrl("http://AUTH-SERVICE").build();
         this.tokenValidator = token -> validateWithAuth(authClient, token);

@@ -27,6 +27,9 @@ public class Driver {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column
+    private Long userId;
+
     @Column(nullable = false)
     private String name;
 

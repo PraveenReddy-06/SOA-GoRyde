@@ -9,6 +9,7 @@ import com.goryde.driver.integration.ride.RideServiceClient;
 import com.goryde.driver.model.Driver;
 import com.goryde.driver.model.DriverAvailability;
 import com.goryde.driver.repository.DriverRepository;
+import com.goryde.driver.security.DriverIdentityProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,12 +32,13 @@ import static org.mockito.Mockito.when;
 class DriverServiceTest {
     @Mock DriverRepository repository;
     @Mock RideServiceClient rideServiceClient;
+    @Mock DriverIdentityProvider identityProvider;
     private DriverService service;
     private DriverRequest request;
 
     @BeforeEach
     void setUp() {
-        service = new DriverService(repository, rideServiceClient);
+        service = new DriverService(repository, rideServiceClient, identityProvider);
         request = new DriverRequest("Ada", "555-0100", "ada@example.com", "Sedan", decimal("40.0"), decimal("-73.0"));
     }
 

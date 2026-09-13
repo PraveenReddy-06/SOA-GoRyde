@@ -6,6 +6,7 @@ import com.goryde.ride.dto.RideResponse;
 import com.goryde.ride.exception.InvalidRideTransitionException;
 import com.goryde.ride.exception.RideNotFoundException;
 import com.goryde.ride.exception.UnauthorizedDriverActionException;
+import com.goryde.ride.exception.UnauthorizedRideAccessException;
 import com.goryde.ride.model.Ride;
 import com.goryde.ride.model.RideStatus;
 import com.goryde.ride.repository.RideRepository;
@@ -39,6 +40,7 @@ public class RideService {
     }
 
     public RideResponse create(CreateRideRequest request) {
+        requirePassengerOrAdmin();
         Ride ride = new Ride();
         passengerIdentityProvider.currentPassengerId().ifPresent(ride::setPassengerId);
         ride.setPickupLocation(request.pickupLocation());
@@ -61,7 +63,9 @@ public class RideService {
 
     @Transactional(readOnly = true)
     public RideResponse getById(Long rideId) {
-        return RideResponse.from(findRide(rideId));
+        Ride ride = findRide(rideId);
+        requireRideAccess(ride);
+        return RideResponse.from(ride);
     }
 
     @Transactional(readOnly = true)
@@ -75,6 +79,10 @@ public class RideService {
     @Transactional
     public RideResponse cancel(Long rideId) {
         Ride ride = findRide(rideId);
+        requirePassengerOrAdmin();
+        if (currentUserId().isPresent() && !currentUserId().get().equals(ride.getPassengerId())) {
+            throw new UnauthorizedRideAccessException();
+        }
         if (ride.getStatus() == RideStatus.CANCELLED) {
             return RideResponse.from(ride);
         }
@@ -87,11 +95,13 @@ public class RideService {
 
     @Transactional
     public RideResponse start(Long rideId) {
+        requireAssignedDriver(rideId);
         return transition(rideId, RideStatus.DRIVER_ARRIVED, RideStatus.RIDE_STARTED);
     }
 
     @Transactional
     public RideResponse complete(Long rideId) {
+        requireAssignedDriver(rideId);
         Ride ride = findRide(rideId);
         if (ride.getStatus() != RideStatus.RIDE_STARTED) {
             throw new InvalidRideTransitionException(ride.getStatus(), RideStatus.RIDE_COMPLETED);
@@ -163,6 +173,48 @@ public class RideService {
             throw new UnauthorizedDriverActionException();
         }
         return ride;
+    }
+
+    private void requirePassengerOrAdmin() {
+        String role = passengerIdentityProvider.currentRole().orElse(null);
+        if (role != null && !"PASSENGER".equals(role) && !"ADMIN".equals(role)) {
+            throw new UnauthorizedRideAccessException();
+        }
+    }
+
+    private void requireAssignedDriver(Long rideId) {
+        Optional<Long> userId = currentUserId();
+        if (userId.isEmpty()) {
+            return;
+        }
+        Ride ride = findRide(rideId);
+        String role = passengerIdentityProvider.currentRole().orElse(null);
+        if (role != null && !"DRIVER".equals(role) && !"ADMIN".equals(role)) {
+            throw new UnauthorizedDriverActionException();
+        }
+        if (("DRIVER".equals(role) || role == null) && !userId.get().equals(ride.getDriverId())) {
+            throw new UnauthorizedDriverActionException();
+        }
+    }
+
+    private void requireRideAccess(Ride ride) {
+        Optional<Long> userId = currentUserId();
+        if (userId.isEmpty()) {
+            return;
+        }
+        String role = passengerIdentityProvider.currentRole().orElse(null);
+        boolean allowed = role == null && (userId.get().equals(ride.getPassengerId())
+            || userId.get().equals(ride.getDriverId()))
+            || "ADMIN".equals(role)
+                || ("PASSENGER".equals(role) && userId.get().equals(ride.getPassengerId()))
+                || ("DRIVER".equals(role) && userId.get().equals(ride.getDriverId()));
+        if (!allowed) {
+            throw new UnauthorizedRideAccessException();
+        }
+    }
+
+    private Optional<Long> currentUserId() {
+        return passengerIdentityProvider.currentPassengerId();
     }
 
     private Ride findRide(Long rideId) {

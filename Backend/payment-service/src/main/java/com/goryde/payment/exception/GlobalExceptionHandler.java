@@ -34,6 +34,11 @@ public class GlobalExceptionHandler {
         return response(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), null);
     }
 
+    @ExceptionHandler(UnauthorizedPaymentAccessException.class)
+    ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedPaymentAccessException exception) {
+        return response(HttpStatus.FORBIDDEN, exception.getMessage(), null);
+    }
+
     @ExceptionHandler({MethodArgumentNotValidException.class, HttpMessageNotReadableException.class,
             ConstraintViolationException.class})
     ResponseEntity<Map<String, Object>> handleInvalidRequest(Exception exception) {

@@ -6,6 +6,7 @@ import com.goryde.payment.exception.DuplicatePaymentException;
 import com.goryde.payment.exception.PaymentNotFoundException;
 import com.goryde.payment.exception.PaymentProcessingException;
 import com.goryde.payment.exception.RideServiceUnavailableException;
+import com.goryde.payment.exception.UnauthorizedPaymentAccessException;
 import com.goryde.payment.integration.ride.RidePaymentClient;
 import com.goryde.payment.model.Payment;
 import com.goryde.payment.model.PaymentStatus;
@@ -34,6 +35,7 @@ public class PaymentService {
     }
 
     public PaymentResponse create(CreatePaymentRequest request) {
+        requirePassengerOrAdmin();
         if (request.amount().signum() <= 0) {
             throw new IllegalArgumentException("Payment amount must be greater than zero");
         }
@@ -50,6 +52,7 @@ public class PaymentService {
 
     public PaymentResponse retry(Long paymentId) {
         Payment payment = findPayment(paymentId);
+        requireOwner(payment);
         if (payment.getStatus() != PaymentStatus.FAILED) {
             throw new PaymentProcessingException();
         }
@@ -58,18 +61,24 @@ public class PaymentService {
 
     @Transactional(readOnly = true)
     public PaymentResponse getById(Long paymentId) {
-        return PaymentResponse.from(findPayment(paymentId));
+        Payment payment = findPayment(paymentId);
+        requireOwner(payment);
+        return PaymentResponse.from(payment);
     }
 
     @Transactional(readOnly = true)
     public PaymentResponse getByRideId(Long rideId) {
         return paymentRepository.findByRideId(rideId)
-                .map(PaymentResponse::from)
+                .map(payment -> {
+                    requireOwner(payment);
+                    return PaymentResponse.from(payment);
+                })
                 .orElseThrow(() -> new PaymentNotFoundException(rideId));
     }
 
     @Transactional(readOnly = true)
     public List<PaymentResponse> findMyPayments() {
+        requirePassengerOrAdmin();
         return passengerIdentityProvider.currentPassengerId()
                 .map(paymentRepository::findByPassengerIdOrderByCreatedAtDesc)
                 .orElseGet(List::of)
@@ -106,5 +115,24 @@ public class PaymentService {
     private Payment findPayment(Long paymentId) {
         return paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new PaymentNotFoundException(paymentId));
+    }
+
+    private void requirePassengerOrAdmin() {
+        String role = passengerIdentityProvider.currentRole().orElse(null);
+        if (role != null && !"PASSENGER".equals(role) && !"ADMIN".equals(role)) {
+            throw new UnauthorizedPaymentAccessException();
+        }
+    }
+
+    private void requireOwner(Payment payment) {
+        var userId = passengerIdentityProvider.currentPassengerId();
+        if (userId.isEmpty()) {
+            return;
+        }
+        String role = passengerIdentityProvider.currentRole().orElse(null);
+        if (!"ADMIN".equals(role) && role != null && (!"PASSENGER".equals(role)
+                || !userId.get().equals(payment.getPassengerId()))) {
+            throw new UnauthorizedPaymentAccessException();
+        }
     }
 }

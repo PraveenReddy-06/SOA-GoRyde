@@ -41,4 +41,5 @@ public class AuthController {
     public UserResponse currentUser(@AuthenticationPrincipal User user) {
         return UserResponse.from(user);
     }
+
 }

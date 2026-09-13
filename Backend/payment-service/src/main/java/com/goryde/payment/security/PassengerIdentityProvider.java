@@ -13,7 +13,7 @@ public class PassengerIdentityProvider {
         if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
             return Optional.empty();
         }
-        String value = attributes.getRequest().getHeader("X-User-Id");
+        String value = attributes.getRequest().getHeader("X-Authenticated-User-Id");
         if (value == null || value.isBlank()) {
             return Optional.empty();
         }
@@ -22,5 +22,12 @@ public class PassengerIdentityProvider {
         } catch (NumberFormatException exception) {
             return Optional.empty();
         }
+    }
+
+    public Optional<String> currentRole() {
+        if (!(RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attributes)) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(attributes.getRequest().getHeader("X-Authenticated-Role"));
     }
 }

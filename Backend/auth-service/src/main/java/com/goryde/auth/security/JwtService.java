@@ -3,6 +3,7 @@ package com.goryde.auth.security;
 import com.goryde.auth.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -50,12 +51,15 @@ public class JwtService {
                 && !isTokenExpired(token);
     }
 
+    public Claims parseClaims(String token) throws JwtException {
+        return Jwts.parser().verifyWith(signingKey).build().parseSignedClaims(token).getPayload();
+    }
+
     private boolean isTokenExpired(String token) {
         return extractClaim(token, Claims::getExpiration).before(new Date());
     }
 
     private <T> T extractClaim(String token, Function<Claims, T> resolver) {
-        return resolver.apply(Jwts.parser().verifyWith(signingKey).build()
-                .parseSignedClaims(token).getPayload());
+        return resolver.apply(parseClaims(token));
     }
 }

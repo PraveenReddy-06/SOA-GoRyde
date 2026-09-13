@@ -13,6 +13,7 @@ import feign.FeignException;
 import com.goryde.driver.model.Driver;
 import com.goryde.driver.model.DriverAvailability;
 import com.goryde.driver.repository.DriverRepository;
+import com.goryde.driver.security.DriverIdentityProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,31 +27,39 @@ public class DriverService {
     private static final double EARTH_RADIUS_KM = 6371.0;
     private final DriverRepository driverRepository;
     private final RideServiceClient rideServiceClient;
+    private final DriverIdentityProvider identityProvider;
 
-    public DriverService(DriverRepository driverRepository, RideServiceClient rideServiceClient) {
+    public DriverService(DriverRepository driverRepository, RideServiceClient rideServiceClient,
+                         DriverIdentityProvider identityProvider) {
         this.driverRepository = driverRepository;
         this.rideServiceClient = rideServiceClient;
+        this.identityProvider = identityProvider;
     }
 
     public DriverResponse create(DriverRequest request) {
         Driver driver = new Driver();
+        identityProvider.currentUserId().ifPresent(driver::setUserId);
         applyDetails(driver, request);
         return DriverResponse.from(driverRepository.save(driver));
     }
 
     @Transactional(readOnly = true)
     public DriverResponse getById(Long driverId) {
-        return DriverResponse.from(findDriver(driverId));
+        Driver driver = findDriver(driverId);
+        requireOwner(driver);
+        return DriverResponse.from(driver);
     }
 
     public DriverResponse update(Long driverId, DriverRequest request) {
         Driver driver = findDriver(driverId);
+        requireOwner(driver);
         applyDetails(driver, request);
         return DriverResponse.from(driverRepository.save(driver));
     }
 
     public DriverResponse updateAvailability(Long driverId, DriverAvailability requested) {
         Driver driver = findDriver(driverId);
+        requireOwner(driver);
         DriverAvailability current = driver.getAvailability();
         if (!isAllowed(current, requested)) {
             throw new InvalidAvailabilityTransitionException(current, requested);
@@ -61,6 +70,7 @@ public class DriverService {
 
     public DriverResponse updateLocation(Long driverId, LocationUpdateRequest request) {
         Driver driver = findDriver(driverId);
+        requireOwner(driver);
         driver.setLatitude(request.latitude());
         driver.setLongitude(request.longitude());
         return DriverResponse.from(driverRepository.save(driver));
@@ -112,8 +122,17 @@ public class DriverService {
 
     private void requireBusyDriver(Long driverId) {
         Driver driver = findDriver(driverId);
+        requireOwner(driver);
         if (driver.getAvailability() != DriverAvailability.BUSY) {
             throw new IllegalArgumentException("Driver must be BUSY for this ride action");
+        }
+    }
+
+    private void requireOwner(Driver driver) {
+        Optional<Long> userId = identityProvider.currentUserId();
+        if (userId.isPresent() && !"ADMIN".equals(identityProvider.currentRole().orElse(null))
+                && !userId.get().equals(driver.getUserId())) {
+            throw new IllegalArgumentException("Driver does not belong to the authenticated user");
         }
     }
 

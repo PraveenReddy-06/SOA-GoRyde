@@ -14,8 +14,8 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-    @ExceptionHandler(RideNotFoundException.class)
-    ResponseEntity<Map<String, Object>> handleNotFound(RideNotFoundException exception) {
+    @ExceptionHandler({RideNotFoundException.class, DriverProfileNotFoundException.class})
+    ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException exception) {
         return response(HttpStatus.NOT_FOUND, exception.getMessage(), null);
     }
 

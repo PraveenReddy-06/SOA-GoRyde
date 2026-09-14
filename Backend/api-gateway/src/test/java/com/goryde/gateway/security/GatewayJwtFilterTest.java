@@ -111,4 +111,40 @@ class GatewayJwtFilterTest {
 
         assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     }
+
+    @Test
+    void allowsDriverOnDriverRidesRoute() {
+        filter = new GatewayJwtFilter(token -> Mono.just(new AuthValidationResponse(14L, "driver@example.com", "DRIVER")));
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/rides/driver/my-rides")
+                        .header("Authorization", "Bearer valid").build());
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void rejectsPassengerFromDriverRidesRoute() {
+        filter = new GatewayJwtFilter(token -> Mono.just(new AuthValidationResponse(7L, "passenger@example.com", "PASSENGER")));
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/rides/driver/my-rides")
+                        .header("Authorization", "Bearer valid").build());
+
+        filter.filter(exchange, chain).block();
+
+        assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void allowsPassengerOnPassengerRidesRoute() {
+        filter = new GatewayJwtFilter(token -> Mono.just(new AuthValidationResponse(7L, "passenger@example.com", "PASSENGER")));
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/rides/my-rides")
+                        .header("Authorization", "Bearer valid").build());
+
+        filter.filter(exchange, chain).block();
+
+        verify(chain).filter(org.mockito.ArgumentMatchers.any());
+    }
 }

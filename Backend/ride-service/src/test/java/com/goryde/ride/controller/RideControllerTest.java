@@ -41,6 +41,22 @@ class RideControllerTest {
     }
 
     @Test
+    void returnsDriverRidesForDriver() throws Exception {
+        when(rideService.findMyDriverRides()).thenReturn(java.util.List.of(new RideResponse(3L, 42L, 7L, "Pickup",
+                "Drop", null, new BigDecimal("10.00"), 30, new BigDecimal("28.50"),
+                RideStatus.DRIVER_ASSIGNED, null, null)));
+
+        mockMvc.perform(get("/api/rides/driver/my-rides")).andExpect(status().isOk());
+    }
+
+    @Test
+    void returnsEmptyListWhenDriverHasNoRides() throws Exception {
+        when(rideService.findMyDriverRides()).thenReturn(java.util.List.of());
+
+        mockMvc.perform(get("/api/rides/driver/my-rides")).andExpect(status().isOk());
+    }
+
+    @Test
     void rejectsInvalidCreateRequest() throws Exception {
         mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/rides")
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)

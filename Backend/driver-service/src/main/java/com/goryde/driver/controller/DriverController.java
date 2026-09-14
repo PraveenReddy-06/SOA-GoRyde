@@ -43,49 +43,54 @@ public class DriverController {
         return driverService.create(request);
     }
 
+    @GetMapping("/me")
+    public DriverResponse me() {
+        return driverService.getCurrentDriver();
+    }
+
     @GetMapping("/available")
     public List<DriverResponse> available() {
         return driverService.findAvailable();
     }
 
-    @GetMapping("/{driverId}")
+    @GetMapping("/{driverId:\\d+}")
     public DriverResponse get(@PathVariable Long driverId) {
         return driverService.getById(driverId);
     }
 
-    @PutMapping("/{driverId}")
+    @PutMapping("/{driverId:\\d+}")
     public DriverResponse update(@PathVariable Long driverId, @Valid @RequestBody DriverRequest request) {
         return driverService.update(driverId, request);
     }
 
-    @PatchMapping("/{driverId}/availability")
+    @PatchMapping("/{driverId:\\d+}/availability")
     public DriverResponse updateAvailability(@PathVariable Long driverId,
                                              @Valid @RequestBody AvailabilityUpdateRequest request) {
         return driverService.updateAvailability(driverId, request.availability());
     }
 
-    @PatchMapping("/{driverId}/location")
+    @PatchMapping("/{driverId:\\d+}/location")
     public DriverResponse updateLocation(@PathVariable Long driverId,
                                           @Valid @RequestBody LocationUpdateRequest request) {
         return driverService.updateLocation(driverId, request);
     }
 
-    @PostMapping("/{driverId}/accept")
+    @PostMapping("/{driverId:\\d+}/accept")
     public DriverResponse accept(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
         return driverService.acceptRide(driverId, request.rideId());
     }
 
-    @PostMapping("/{driverId}/reject")
+    @PostMapping("/{driverId:\\d+}/reject")
     public DriverResponse reject(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
         return driverService.rejectRide(driverId, request.rideId());
     }
 
-    @PostMapping("/{driverId}/arriving")
+    @PostMapping("/{driverId:\\d+}/arriving")
     public DriverResponse arriving(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
         return driverService.markArriving(driverId, request.rideId());
     }
 
-    @PostMapping("/{driverId}/arrived")
+    @PostMapping("/{driverId:\\d+}/arrived")
     public DriverResponse arrived(@PathVariable Long driverId, @Valid @RequestBody RideActionRequest request) {
         return driverService.markArrived(driverId, request.rideId());
     }

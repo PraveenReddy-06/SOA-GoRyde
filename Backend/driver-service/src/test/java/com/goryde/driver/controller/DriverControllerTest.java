@@ -3,6 +3,8 @@ package com.goryde.driver.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.goryde.driver.dto.DriverResponse;
 import com.goryde.driver.exception.DriverNotFoundException;
+import com.goryde.driver.exception.DriverProfileNotFoundException;
+import com.goryde.driver.exception.ForbiddenDriverAccessException;
 import com.goryde.driver.model.DriverAvailability;
 import com.goryde.driver.service.DriverService;
 import org.junit.jupiter.api.Test;
@@ -37,5 +39,26 @@ class DriverControllerTest {
                 "ada@example.com", "Sedan", DriverAvailability.OFFLINE,
                 new BigDecimal("40.0"), new BigDecimal("-73.0")));
         mockMvc.perform(get("/api/drivers/1")).andExpect(status().isOk());
+    }
+
+    @Test
+    void returnsCurrentDriverProfile() throws Exception {
+        when(driverService.getCurrentDriver()).thenReturn(new DriverResponse(7L, "Ada", "555-0100",
+                "ada@example.com", "Sedan", DriverAvailability.OFFLINE,
+                new BigDecimal("40.0"), new BigDecimal("-73.0")));
+        mockMvc.perform(get("/api/drivers/me")).andExpect(status().isOk());
+    }
+
+    @Test
+    void returnsNotFoundForMissingDriverProfile() throws Exception {
+        when(driverService.getCurrentDriver()).thenThrow(new DriverProfileNotFoundException(14L));
+        mockMvc.perform(get("/api/drivers/me")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void returnsForbiddenForNonDriver() throws Exception {
+        when(driverService.getCurrentDriver())
+                .thenThrow(new ForbiddenDriverAccessException("Only drivers may access this resource"));
+        mockMvc.perform(get("/api/drivers/me")).andExpect(status().isForbidden());
     }
 }

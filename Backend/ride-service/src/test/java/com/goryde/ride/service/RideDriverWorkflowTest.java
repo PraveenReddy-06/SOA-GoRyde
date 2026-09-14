@@ -3,6 +3,7 @@ package com.goryde.ride.service;
 import com.goryde.ride.config.RideProperties;
 import com.goryde.ride.exception.InvalidRideTransitionException;
 import com.goryde.ride.exception.UnauthorizedDriverActionException;
+import com.goryde.ride.integration.driver.DriverServiceClient;
 import com.goryde.ride.model.Ride;
 import com.goryde.ride.model.RideStatus;
 import com.goryde.ride.repository.RideRepository;
@@ -27,6 +28,7 @@ class RideDriverWorkflowTest {
     @Mock FareCalculator fareCalculator;
     @Mock PassengerIdentityProvider identityProvider;
     @Mock DriverMatchingService driverMatchingService;
+    @Mock DriverServiceClient driverServiceClient;
     private RideService service;
 
     @BeforeEach
@@ -34,7 +36,7 @@ class RideDriverWorkflowTest {
         RideProperties properties = new RideProperties();
         properties.setEstimatedDurationMinutesPerKm(3);
         service = new RideService(repository, distanceCalculator, fareCalculator, properties,
-                identityProvider, driverMatchingService);
+                identityProvider, driverMatchingService, driverServiceClient);
     }
 
     @Test

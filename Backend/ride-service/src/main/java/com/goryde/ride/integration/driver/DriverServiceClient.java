@@ -13,6 +13,9 @@ public interface DriverServiceClient {
     DriverMatchResponse findNearestDriver(@RequestParam("latitude") String latitude,
                                           @RequestParam("longitude") String longitude);
 
+    @GetMapping("/internal/drivers/by-user/{userId}")
+    DriverProfileResponse findDriverByUserId(@PathVariable("userId") Long userId);
+
     @PatchMapping("/api/drivers/{driverId}/availability")
     DriverMatchResponse updateAvailability(@PathVariable("driverId") Long driverId,
                                            @RequestBody DriverAvailabilityUpdateRequest request);

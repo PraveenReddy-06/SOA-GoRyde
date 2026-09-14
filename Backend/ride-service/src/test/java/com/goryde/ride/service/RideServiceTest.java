@@ -6,10 +6,16 @@ import com.goryde.ride.dto.CreateRideRequest;
 import com.goryde.ride.dto.RideResponse;
 import com.goryde.ride.exception.InvalidRideTransitionException;
 import com.goryde.ride.exception.RideNotFoundException;
+import com.goryde.ride.exception.DriverProfileNotFoundException;
+import com.goryde.ride.exception.UnauthorizedDriverActionException;
+import com.goryde.ride.integration.driver.DriverProfileResponse;
+import com.goryde.ride.integration.driver.DriverServiceClient;
 import com.goryde.ride.model.Ride;
 import com.goryde.ride.model.RideStatus;
 import com.goryde.ride.repository.RideRepository;
 import com.goryde.ride.security.PassengerIdentityProvider;
+import feign.FeignException;
+import feign.Request;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +23,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -32,6 +40,7 @@ class RideServiceTest {
     @Mock FareCalculator fareCalculator;
     @Mock PassengerIdentityProvider identityProvider;
     @Mock DriverMatchingService driverMatchingService;
+    @Mock DriverServiceClient driverServiceClient;
     private RideService service;
     private CreateRideRequest request;
 
@@ -40,7 +49,7 @@ class RideServiceTest {
         RideProperties properties = new RideProperties();
         properties.setEstimatedDurationMinutesPerKm(3);
         service = new RideService(repository, distanceCalculator, fareCalculator, properties,
-            identityProvider, driverMatchingService);
+            identityProvider, driverMatchingService, driverServiceClient);
         request = new CreateRideRequest("Pickup", "Drop", decimal("40.0"), decimal("-73.0"),
                 decimal("40.1"), decimal("-73.1"));
     }
@@ -125,6 +134,49 @@ class RideServiceTest {
         when(repository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> service.getById(99L)).isInstanceOf(RideNotFoundException.class);
+    }
+
+    @Test
+    void driverReceivesOnlyRidesAssignedToTheirDriverId() {
+        when(identityProvider.currentPassengerId()).thenReturn(Optional.of(14L));
+        when(identityProvider.currentRole()).thenReturn(Optional.of("DRIVER"));
+        when(driverServiceClient.findDriverByUserId(14L)).thenReturn(new DriverProfileResponse(7L, "BUSY"));
+        Ride ride = ride(3L, 42L, RideStatus.DRIVER_ASSIGNED);
+        ride.setDriverId(7L);
+        when(repository.findByDriverIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(ride));
+
+        assertThat(service.findMyDriverRides()).extracting(RideResponse::id).containsExactly(3L);
+    }
+
+    @Test
+    void driverWithoutRidesReceivesEmptyList() {
+        when(identityProvider.currentPassengerId()).thenReturn(Optional.of(14L));
+        when(identityProvider.currentRole()).thenReturn(Optional.of("DRIVER"));
+        when(driverServiceClient.findDriverByUserId(14L)).thenReturn(new DriverProfileResponse(7L, "AVAILABLE"));
+        when(repository.findByDriverIdOrderByCreatedAtDesc(7L)).thenReturn(List.of());
+
+        assertThat(service.findMyDriverRides()).isEmpty();
+    }
+
+    @Test
+    void passengerCannotAccessDriverRides() {
+        when(identityProvider.currentRole()).thenReturn(Optional.of("PASSENGER"));
+
+        assertThatThrownBy(() -> service.findMyDriverRides())
+                .isInstanceOf(UnauthorizedDriverActionException.class);
+    }
+
+    @Test
+    void missingDriverProfileIsReportedForDriverRides() {
+        when(identityProvider.currentPassengerId()).thenReturn(Optional.of(14L));
+        when(identityProvider.currentRole()).thenReturn(Optional.of("DRIVER"));
+        when(driverServiceClient.findDriverByUserId(14L))
+                .thenThrow(new FeignException.NotFound("not found",
+                        Request.create(Request.HttpMethod.GET, "/internal/drivers/by-user/14", Map.of(),
+                                null, StandardCharsets.UTF_8, null), null, null));
+
+        assertThatThrownBy(() -> service.findMyDriverRides())
+                .isInstanceOf(DriverProfileNotFoundException.class);
     }
 
     private Ride ride(Long id, Long passengerId, RideStatus status) {

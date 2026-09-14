@@ -4,6 +4,8 @@ import com.goryde.driver.dto.DriverRequest;
 import com.goryde.driver.dto.DriverResponse;
 import com.goryde.driver.dto.LocationUpdateRequest;
 import com.goryde.driver.exception.DriverNotFoundException;
+import com.goryde.driver.exception.DriverProfileNotFoundException;
+import com.goryde.driver.exception.ForbiddenDriverAccessException;
 import com.goryde.driver.exception.InvalidAvailabilityTransitionException;
 import com.goryde.driver.exception.RideServiceUnavailableException;
 import com.goryde.driver.exception.InvalidRideActionException;
@@ -48,6 +50,19 @@ public class DriverService {
         Driver driver = findDriver(driverId);
         requireOwner(driver);
         return DriverResponse.from(driver);
+    }
+
+    @Transactional(readOnly = true)
+    public DriverResponse getCurrentDriver() {
+        requireDriverRole();
+        Long userId = identityProvider.currentUserId()
+                .orElseThrow(() -> new ForbiddenDriverAccessException("Authenticated driver identity is required"));
+        return DriverResponse.from(findDriverByUserId(userId));
+    }
+
+    @Transactional(readOnly = true)
+    public DriverResponse getByUserId(Long userId) {
+        return DriverResponse.from(findDriverByUserId(userId));
     }
 
     public DriverResponse update(Long driverId, DriverRequest request) {
@@ -118,6 +133,21 @@ public class DriverService {
 
     private Driver findDriver(Long driverId) {
         return driverRepository.findById(driverId).orElseThrow(() -> new DriverNotFoundException(driverId));
+    }
+
+    private Driver findDriverByUserId(Long userId) {
+        return driverRepository.findByUserId(userId)
+                .orElseThrow(() -> new DriverProfileNotFoundException(userId));
+    }
+
+    private void requireDriverRole() {
+        String role = identityProvider.currentRole().orElse(null);
+        if (role != null && !"DRIVER".equals(role)) {
+            throw new ForbiddenDriverAccessException("Only drivers may access this resource");
+        }
+        if (identityProvider.currentUserId().isEmpty()) {
+            throw new ForbiddenDriverAccessException("Authenticated driver identity is required");
+        }
     }
 
     private void requireBusyDriver(Long driverId) {

@@ -35,6 +35,11 @@ public class RideController {
         return rideService.findMyRides();
     }
 
+    @GetMapping("/driver/my-rides")
+    public List<RideResponse> myDriverRides() {
+        return rideService.findMyDriverRides();
+    }
+
     @GetMapping("/{rideId}")
     public RideResponse get(@PathVariable Long rideId) {
         return rideService.getById(rideId);

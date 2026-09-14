@@ -3,14 +3,19 @@ package com.goryde.ride.service;
 import com.goryde.ride.config.RideProperties;
 import com.goryde.ride.dto.CreateRideRequest;
 import com.goryde.ride.dto.RideResponse;
+import com.goryde.ride.exception.DriverProfileNotFoundException;
+import com.goryde.ride.exception.DriverServiceUnavailableException;
 import com.goryde.ride.exception.InvalidRideTransitionException;
 import com.goryde.ride.exception.RideNotFoundException;
 import com.goryde.ride.exception.UnauthorizedDriverActionException;
 import com.goryde.ride.exception.UnauthorizedRideAccessException;
+import com.goryde.ride.integration.driver.DriverProfileResponse;
+import com.goryde.ride.integration.driver.DriverServiceClient;
 import com.goryde.ride.model.Ride;
 import com.goryde.ride.model.RideStatus;
 import com.goryde.ride.repository.RideRepository;
 import com.goryde.ride.security.PassengerIdentityProvider;
+import feign.FeignException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,17 +32,20 @@ public class RideService {
     private final RideProperties rideProperties;
     private final PassengerIdentityProvider passengerIdentityProvider;
     private final DriverMatchingService driverMatchingService;
+    private final DriverServiceClient driverServiceClient;
 
     public RideService(RideRepository rideRepository, DistanceCalculator distanceCalculator,
                        FareCalculator fareCalculator, RideProperties rideProperties,
                        PassengerIdentityProvider passengerIdentityProvider,
-                       DriverMatchingService driverMatchingService) {
+                       DriverMatchingService driverMatchingService,
+                       DriverServiceClient driverServiceClient) {
         this.rideRepository = rideRepository;
         this.distanceCalculator = distanceCalculator;
         this.fareCalculator = fareCalculator;
         this.rideProperties = rideProperties;
         this.passengerIdentityProvider = passengerIdentityProvider;
         this.driverMatchingService = driverMatchingService;
+        this.driverServiceClient = driverServiceClient;
     }
 
     public RideResponse create(CreateRideRequest request) {
@@ -78,6 +86,36 @@ public class RideService {
                 .map(rideRepository::findByPassengerIdOrderByCreatedAtDesc)
                 .orElseGet(List::of)
                 .stream().map(RideResponse::from).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<RideResponse> findMyDriverRides() {
+        requireDriverOrAdmin();
+        Long driverId = resolveAuthenticatedDriverId();
+        return rideRepository.findByDriverIdOrderByCreatedAtDesc(driverId)
+                .stream().map(RideResponse::from).toList();
+    }
+
+    private void requireDriverOrAdmin() {
+        String role = passengerIdentityProvider.currentRole().orElse(null);
+        if (role != null && !"DRIVER".equals(role) && !"ADMIN".equals(role)) {
+            throw new UnauthorizedDriverActionException();
+        }
+    }
+
+    private Long resolveAuthenticatedDriverId() {
+        Long userId = currentUserId().orElseThrow(UnauthorizedDriverActionException::new);
+        try {
+            DriverProfileResponse driver = driverServiceClient.findDriverByUserId(userId);
+            if (driver == null || driver.id() == null) {
+                throw new DriverProfileNotFoundException();
+            }
+            return driver.id();
+        } catch (FeignException.NotFound notFound) {
+            throw new DriverProfileNotFoundException();
+        } catch (FeignException driverServiceFailure) {
+            throw new DriverServiceUnavailableException();
+        }
     }
 
     @Transactional

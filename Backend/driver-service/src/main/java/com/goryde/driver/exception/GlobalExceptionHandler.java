@@ -14,9 +14,15 @@ import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-    @ExceptionHandler({DriverNotFoundException.class, NoAvailableDriverException.class})
+    @ExceptionHandler({DriverNotFoundException.class, NoAvailableDriverException.class,
+            DriverProfileNotFoundException.class})
     ResponseEntity<Map<String, Object>> handleNotFound(RuntimeException exception) {
         return response(HttpStatus.NOT_FOUND, exception.getMessage(), null);
+    }
+
+    @ExceptionHandler(ForbiddenDriverAccessException.class)
+    ResponseEntity<Map<String, Object>> handleForbidden(ForbiddenDriverAccessException exception) {
+        return response(HttpStatus.FORBIDDEN, exception.getMessage(), null);
     }
 
     @ExceptionHandler(RideServiceUnavailableException.class)

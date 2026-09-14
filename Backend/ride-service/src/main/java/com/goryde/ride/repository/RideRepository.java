@@ -8,5 +8,6 @@ import java.util.List;
 
 public interface RideRepository extends JpaRepository<Ride, Long> {
     List<Ride> findByPassengerIdOrderByCreatedAtDesc(Long passengerId);
+    List<Ride> findByDriverIdOrderByCreatedAtDesc(Long driverId);
     List<Ride> findByStatus(RideStatus status);
 }

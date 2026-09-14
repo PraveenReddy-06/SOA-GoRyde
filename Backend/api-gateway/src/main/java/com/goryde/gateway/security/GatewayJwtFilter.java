@@ -117,6 +117,9 @@ public class GatewayJwtFilter implements GlobalFilter {
         if ("/api/auth/me".equals(path)) {
             return true;
         }
+        if (path.startsWith("/api/rides/driver/")) {
+            return "DRIVER".equals(role);
+        }
         if (path.endsWith("/start") || path.endsWith("/complete")) {
             return "DRIVER".equals(role);
         }

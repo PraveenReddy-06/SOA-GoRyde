@@ -3,6 +3,8 @@ package com.goryde.driver.service;
 import com.goryde.driver.dto.DriverRequest;
 import com.goryde.driver.dto.LocationUpdateRequest;
 import com.goryde.driver.exception.DriverNotFoundException;
+import com.goryde.driver.exception.DriverProfileNotFoundException;
+import com.goryde.driver.exception.ForbiddenDriverAccessException;
 import com.goryde.driver.exception.InvalidAvailabilityTransitionException;
 import com.goryde.driver.exception.RideServiceUnavailableException;
 import com.goryde.driver.integration.ride.RideServiceClient;
@@ -57,7 +59,7 @@ class DriverServiceTest {
         Driver driver = driver(1L, DriverAvailability.OFFLINE, decimal("40.0"), decimal("-73.0"));
         when(repository.findById(1L)).thenReturn(Optional.of(driver));
         when(repository.save(driver)).thenReturn(driver);
-        assertThat(service.getById(1L).name()).isEqualTo("Ada");
+        assertThat(service.getById(1L).name()).isEqualTo("Driver 1");
         service.update(1L, new DriverRequest("Grace", request.phone(), request.email(), request.vehicleDetails(), request.latitude(), request.longitude()));
         assertThat(driver.getName()).isEqualTo("Grace");
     }
@@ -69,7 +71,8 @@ class DriverServiceTest {
         when(repository.save(driver)).thenReturn(driver);
         service.updateAvailability(1L, DriverAvailability.AVAILABLE);
         assertThat(driver.getAvailability()).isEqualTo(DriverAvailability.AVAILABLE);
-        assertThatThrownBy(() -> service.updateAvailability(1L, DriverAvailability.BUSY))
+        when(repository.findById(2L)).thenReturn(Optional.of(driver(2L, DriverAvailability.OFFLINE, null, null)));
+        assertThatThrownBy(() -> service.updateAvailability(2L, DriverAvailability.BUSY))
                 .isInstanceOf(InvalidAvailabilityTransitionException.class);
     }
 
@@ -91,6 +94,44 @@ class DriverServiceTest {
     void reportsMissingDriver() {
         when(repository.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getById(99L)).isInstanceOf(DriverNotFoundException.class);
+    }
+
+    @Test
+    void returnsCurrentDriverForAuthenticatedUserId() {
+        Driver driver = driver(7L, DriverAvailability.OFFLINE, decimal("40.0"), decimal("-73.0"));
+        driver.setUserId(14L);
+        when(identityProvider.currentUserId()).thenReturn(Optional.of(14L));
+        when(identityProvider.currentRole()).thenReturn(Optional.of("DRIVER"));
+        when(repository.findByUserId(14L)).thenReturn(Optional.of(driver));
+
+        assertThat(service.getCurrentDriver().id()).isEqualTo(7L);
+    }
+
+    @Test
+    void resolvesDriverByUserIdForInternalCalls() {
+        Driver driver = driver(7L, DriverAvailability.OFFLINE, decimal("40.0"), decimal("-73.0"));
+        driver.setUserId(14L);
+        when(repository.findByUserId(14L)).thenReturn(Optional.of(driver));
+
+        assertThat(service.getByUserId(14L).id()).isEqualTo(7L);
+    }
+
+    @Test
+    void rejectsPassengerRoleForCurrentDriver() {
+        when(identityProvider.currentRole()).thenReturn(Optional.of("PASSENGER"));
+
+        assertThatThrownBy(() -> service.getCurrentDriver())
+                .isInstanceOf(ForbiddenDriverAccessException.class);
+    }
+
+    @Test
+    void reportsMissingDriverProfileForAuthenticatedUser() {
+        when(identityProvider.currentUserId()).thenReturn(Optional.of(14L));
+        when(identityProvider.currentRole()).thenReturn(Optional.of("DRIVER"));
+        when(repository.findByUserId(14L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.getCurrentDriver())
+                .isInstanceOf(DriverProfileNotFoundException.class);
     }
 
         @Test
